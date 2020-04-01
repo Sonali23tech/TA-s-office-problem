@@ -69,10 +69,10 @@ void *teacherProcess(void* null_param)
 }
 int main(int argc, const char **argv)
 {
-    ll no_of_students = 5LL;             // Keeping 5 students as default
+    ll no_of_students = 5LL;            
     if (argc == 2)
     {
-        no_of_students = atoll(argv[1]); // Taking the first argument as input
+        no_of_students = atoll(argv[1]); 
         printf("Number of students taken from argument is %lld\n", no_of_students);
     }
     else if (argc == 1)
@@ -84,7 +84,7 @@ int main(int argc, const char **argv)
     {
         printf("Passed argument doesn\'t seem to match. Taking number of student 5 as default.");
     }
-    // Generating student ids
+    
     int *student_ids = (int *)malloc(sizeof(int) * no_of_students);
     for(int i = 0; i < no_of_students; i++)
         student_ids[i] = i + 1;
@@ -92,19 +92,19 @@ int main(int argc, const char **argv)
     pthread_t *student_thread = (pthread_t *)malloc(no_of_students * sizeof(pthread_t));
     pthread_t teacher_thread;
 
-    // Initialization of mutex and semaphores
-    sem_init(&student_sem, 0, 3); // pshared = 0(mid arg) means it'll be shared among only one process
+    
+    sem_init(&student_sem, 0, 3); 
     sem_init(&teacher_sem, 0, 1);
     memset(waiting_queue, -1, sizeof(int) * MAX_WAITING_CHAIRS);
 
-    // Creating threads of teacher and student
+    
     pthread_create(&teacher_thread, NULL, teacherProcess, NULL);
     for (int i = 0; i < no_of_students; i++)
     {
         pthread_create(&student_thread[i], NULL, &studentProcess, (void *) &student_ids[i]);
         sleep(1);
     }
-    // Joining the threads to the main process
+    
     pthread_join(teacher_thread, NULL);
     for (int i = 0; i < no_of_students; i++)
         pthread_join(student_thread[i], NULL);
