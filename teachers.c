@@ -1,127 +1,148 @@
 #include <stdio.h>
-#include <pthread.h>
 #include <stdlib.h>
-#include <semaphore.h>
-#include <string.h>
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <unistd.h>
-#endif
+#include <string.h> // memset
+#include <pthread.h> // pthread_t, pthread_create, pthread_join
+#include <semaphore.h> // sem_init, sem_wait, sem_post
+#include <time.h>
 
-typedef long long ll;
+#define NUM_SEAT 3
 
-#define MAX_WAITING_CHAIRS 3
-ll no_of_students_waiting = 0;
-ll next_teach_index = 0, next_seat_index = 0;
-int waiting_queue[MAX_WAITING_CHAIRS];
-sem_t student_sem, teacher_sem;
+#define SLEEP_MAX 5
 
-void displayWaitingQueue();
+//sematphores
+sem_t sem_stu;
+sem_t sem_ta;
 
-void *studentProcess(void *identity)
-{
-    int *identity_pointer = (int *)identity;
-    int id = *identity_pointer;
-    while (1)
-    {
-        if(no_of_students_waiting < MAX_WAITING_CHAIRS)
-        {
-            sem_wait(&student_sem);
-            printf("Student %d is sitting in the waiting seat queue\n", id);
-            no_of_students_waiting++;
-            waiting_queue[next_seat_index++ % MAX_WAITING_CHAIRS] = id;
-            
-            displayWaitingQueue();
-            sleep(1);
-        }
-        else{
-            printf("Student %d is doing programming at home\n", id);
-        }
-        sleep(1);
-    }
+//sem_t mutex;
+pthread_mutex_t mutex;
+
+int chair[3];
+int count = 0; //number of waiting students
+int next_seat = 0;
+int next_teach = 0;
+
+void rand_sleep(void);
+void* stu_programming(void* stu_id);
+void* ta_teaching();
+
+int main(int argc, char **argv){
+
+	//thread(s)
+	pthread_t *students;
+	pthread_t ta;
+	
+	int* student_ids;
+	int student_num;
+	
+	//index
+	int i;
+
+	//get number of students from user
+	printf("How many students? ");
+	scanf("%d", &student_num);
+
+	//initialize
+	students = (pthread_t*)malloc(sizeof(pthread_t) * student_num);
+	student_ids = (int*)malloc(sizeof(int) * student_num);
+
+	memset(student_ids, 0, student_num);
+
+	sem_init(&sem_stu,0,0);
+	sem_init(&sem_ta,0,1);
+	
+	//set random
+	srand(time(NULL));
+
+	//sem_init(&mutex,0,1);
+	pthread_mutex_init(&mutex,NULL);
+
+	//create thread
+	pthread_create(&ta,NULL,ta_teaching,NULL);
+
+	//create threads
+	for(i=0; i<student_num; i++)
+	{
+		student_ids[i] = i+1;
+		pthread_create(&students[i], NULL, stu_programming, (void*) &student_ids[i]);
+	} 
+	
+	pthread_join(ta, NULL);
+	
+	for(i=0; i<student_num;i++)
+	{
+		pthread_join(students[i],NULL);
+	}	
+	
+	return 0;
 }
 
-void *teacherProcess(void* null_param)
+void* stu_programming(void* stu_id)
 {
-    while (1)
-    {
-        if(no_of_students_waiting > 0)
-        {
-            sem_wait(&teacher_sem);
-            sem_post(&student_sem);
-            no_of_students_waiting--;
-            printf("---------Teacher waken up by student--------\n");
-            int this_student = waiting_queue[next_teach_index % MAX_WAITING_CHAIRS];
-            waiting_queue[next_teach_index % MAX_WAITING_CHAIRS] = -1;
-            displayWaitingQueue();
-            next_teach_index++;
-            printf("Teacher is teaching student %d\n", this_student);
-            sleep(3);
-            printf("Teacher is leaving student %d\n", this_student);
-            sem_post(&teacher_sem);
-        }
-        else{
-            printf("Teacher is sleeping\n");
-        }
-        sleep(1);
-    }
+	int id = *(int*)stu_id;
+
+	printf("[stu] student %d is programming\n",id);		
+	
+	while(1)
+	{
+		rand_sleep();
+
+		//sem_wait(&mutex);
+		pthread_mutex_lock(&mutex);
+
+		if(count < NUM_SEAT)	
+		{
+			chair[next_seat] = id;
+			count++;
+			
+			printf("	[stu] student %d is waiting\n",id);
+			printf("waiting students : [1] %d [2] %d [3] %d\n",chair[0],chair[1],chair[2]);
+			next_seat = (next_seat+1) % NUM_SEAT;
+			
+			//sem_post(&mutex);
+			pthread_mutex_unlock(&mutex);
+	
+			//wakeup ta
+			sem_post(&sem_stu);
+			sem_wait(&sem_ta);
+		}
+		else //no more chairs
+		{
+			//sem_post(&mutex);
+			pthread_mutex_unlock(&mutex);
+			
+			printf("[stu] no more chairs. student %d is programming\n",id);		
+		}
+	}				
 }
-int main(int argc, const char **argv)
+
+void* ta_teaching()
 {
-    ll no_of_students = 5LL;            
-    if (argc == 2)
-    {
-        no_of_students = atoll(argv[1]); 
-        printf("Number of students taken from argument is %lld\n", no_of_students);
-    }
-    else if (argc == 1)
-    {
-        printf("Enter the number of students ");
-        scanf("%lld", &no_of_students);
-    }
-    else
-    {
-        printf("Passed argument doesn\'t seem to match. Taking number of student 5 as default.");
-    }
-    
-    int *student_ids = (int *)malloc(sizeof(int) * no_of_students);
-    for(int i = 0; i < no_of_students; i++)
-        student_ids[i] = i + 1;
-    
-    pthread_t *student_thread = (pthread_t *)malloc(no_of_students * sizeof(pthread_t));
-    pthread_t teacher_thread;
+	while(1)
+	{
+		sem_wait(&sem_stu);	
+		
+		//sem_wait(&mutex);
+		pthread_mutex_lock(&mutex);
+		
+		printf("		[ta] TA is teaching student %d\n",chair[next_teach]);	
+		chair[next_teach]=0;
+		count--;
+		
+		printf("waiting students : [1] %d [2] %d [3] %d\n",chair[0],chair[1],chair[2]);
+		next_teach = (next_teach + 1) % NUM_SEAT;
+		
+		rand_sleep();
 
-    
-    sem_init(&student_sem, 0, 3); 
-    sem_init(&teacher_sem, 0, 1);
-    memset(waiting_queue, -1, sizeof(int) * MAX_WAITING_CHAIRS);
+		printf("		[ta] teaching finish.\n");	
 
-    
-    pthread_create(&teacher_thread, NULL, teacherProcess, NULL);
-    for (int i = 0; i < no_of_students; i++)
-    {
-        pthread_create(&student_thread[i], NULL, &studentProcess, (void *) &student_ids[i]);
-        sleep(1);
-    }
-    
-    pthread_join(teacher_thread, NULL);
-    for (int i = 0; i < no_of_students; i++)
-        pthread_join(student_thread[i], NULL);
+		//sem_post(&mutex);
+		pthread_mutex_unlock(&mutex);
 
-    return 0;
+		sem_post(&sem_ta);
+	}	
 }
-void displayWaitingQueue()
-{
-    printf("%lld students are waiting in the seat queue\n", no_of_students_waiting);
-    for(int i = 0; i < MAX_WAITING_CHAIRS; i++)
-    {
-        char this_person[30];
-        if (waiting_queue[i] != -1)
-            sprintf(this_person, "%d", waiting_queue[i]);
-        else
-            sprintf(this_person, "No one");
-        printf("[%d] %s   ",i + 1, this_person);
-    }
-    printf("\n");
+
+void rand_sleep(void){
+	int time = rand() % SLEEP_MAX + 1;
+	sleep(time);
 }
