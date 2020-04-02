@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h> // memset
+#include <string.h> 
 #include <pthread.h> // pthread_t, pthread_create, pthread_join
 #include <semaphore.h> // sem_init, sem_wait, sem_post
 #include <time.h>
@@ -9,7 +9,7 @@
 
 #define SLEEP_MAX 5
 
-//sematphores
+
 sem_t sem_stu;
 sem_t sem_ta;
 
