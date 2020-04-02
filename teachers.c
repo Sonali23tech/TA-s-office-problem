@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h> 
-#include <pthread.h> // pthread_t, pthread_create, pthread_join
-#include <semaphore.h> // sem_init, sem_wait, sem_post
+#include <pthread.h> 
+#include <semaphore.h> 
 #include <time.h>
 
 #define NUM_SEAT 3
@@ -13,11 +13,11 @@
 sem_t sem_stu;
 sem_t sem_ta;
 
-//sem_t mutex;
+
 pthread_mutex_t mutex;
 
 int chair[3];
-int count = 0; //number of waiting students
+int count = 0; 
 int next_seat = 0;
 int next_teach = 0;
 
@@ -27,21 +27,20 @@ void* ta_teaching();
 
 int main(int argc, char **argv){
 
-	//thread(s)
+	
 	pthread_t *students;
 	pthread_t ta;
 	
 	int* student_ids;
 	int student_num;
 	
-	//index
+	
 	int i;
 
-	//get number of students from user
+	
 	printf("How many students? ");
 	scanf("%d", &student_num);
 
-	//initialize
 	students = (pthread_t*)malloc(sizeof(pthread_t) * student_num);
 	student_ids = (int*)malloc(sizeof(int) * student_num);
 
@@ -50,16 +49,16 @@ int main(int argc, char **argv){
 	sem_init(&sem_stu,0,0);
 	sem_init(&sem_ta,0,1);
 	
-	//set random
+	
 	srand(time(NULL));
 
-	//sem_init(&mutex,0,1);
+	
 	pthread_mutex_init(&mutex,NULL);
 
-	//create thread
+	
 	pthread_create(&ta,NULL,ta_teaching,NULL);
 
-	//create threads
+	
 	for(i=0; i<student_num; i++)
 	{
 		student_ids[i] = i+1;
@@ -101,13 +100,13 @@ void* stu_programming(void* stu_id)
 			//sem_post(&mutex);
 			pthread_mutex_unlock(&mutex);
 	
-			//wakeup ta
+			
 			sem_post(&sem_stu);
 			sem_wait(&sem_ta);
 		}
 		else //no more chairs
 		{
-			//sem_post(&mutex);
+			
 			pthread_mutex_unlock(&mutex);
 			
 			printf("[stu] no more chairs. student %d is programming\n",id);		
@@ -121,7 +120,7 @@ void* ta_teaching()
 	{
 		sem_wait(&sem_stu);	
 		
-		//sem_wait(&mutex);
+		
 		pthread_mutex_lock(&mutex);
 		
 		printf("		[ta] TA is teaching student %d\n",chair[next_teach]);	
